@@ -17,6 +17,8 @@ struct Car {
   double d;
   double yaw;
   double speed;
+  double ref_velocity = 0.0;
+  int lane = 1;
 };
 
 struct SensorData {
@@ -40,5 +42,16 @@ struct PreviousPath {
   Points points;
   double end_s;
   double end_d;
+};
+
+struct Behaviour {
+  int lane;
+  double velocity;
+};
+
+struct Predictions{
+    bool car_ahead = false;
+    bool car_right = false;
+    bool car_left = false;
 };
 }  // namespace carND

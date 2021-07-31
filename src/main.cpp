@@ -12,6 +12,7 @@
 #include "common_structs.h"
 #include "trajectory_generator.h"
 #include "behaviour_planner.h"
+#include "predictor.h"
 
 // for convenience
 using nlohmann::json;
@@ -57,8 +58,11 @@ int main() {
   std::shared_ptr<carND::Car> car = std::make_shared<carND::Car>();
   carND::TrajectoryGenerator traj_generator(car, map_waypoints_x,
                                             map_waypoints_y, map_waypoints_s);
-  h.onMessage([&map_waypoints_dx, &map_waypoints_dy, &car, &traj_generator](
-                uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
+  carND::Predictor predictor(car);
+  carND::BehaviourPlanner planner(car);
+  h.onMessage([&map_waypoints_dx, &map_waypoints_dy, &car, &predictor,
+               &traj_generator, &planner](uWS::WebSocket<uWS::SERVER> ws, char *data,
+                                size_t length, uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
@@ -80,7 +84,10 @@ int main() {
           carND::PreviousPath previous_path{{j[1]["previous_path_x"], j[1]["previous_path_y"]},
                                             j[1]["end_path_s"],
                                             j[1]["end_path_d"]};
-
+          auto prev_size = previous_path.points.x.size();
+          if(prev_size > 0) {
+            car->s = previous_path.end_s;
+          }
           // Sensor Fusion Data, a list of all other cars on the same side
           //   of the road.
           auto sensor_fusion = j[1]["sensor_fusion"];
@@ -91,9 +98,9 @@ int main() {
           }
 
           json msgJson;
-
-          auto next_val = traj_generator.generate_trajectory(previous_path, sensor_data);
-          std::cout << previous_path.points.x.size() << '\n';
+          auto predictions = predictor.getPredictions(sensor_data, prev_size);
+          auto behaviour = planner.getBehaviours(predictions);
+          auto next_val = traj_generator.generate_trajectory(previous_path, behaviour);
 
           msgJson["next_x"] = next_val.x;
           msgJson["next_y"] = next_val.y;

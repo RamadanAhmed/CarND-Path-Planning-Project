@@ -92,6 +92,26 @@ A really helpful resource for doing this project and creating smooth trajectorie
     git checkout e94b6e1
     ```
 
+## Reflection
+We've composed the project to modules *predicition*, *behaviour planner*, *trajectory generator*
+
+### Predicition
+we use sensor fusion data to detect cars :
+* if a car is in front of ego-car 
+* if a car is left of ego-car
+* if a car is right of ego-car
+
+### Behaviour planner 
+We use result from prediction to determine if 
+* we are safe to change lane
+* should we stay on lane
+* should we slow down
+
+### tajectory planner 
+we use result from behaviour to set the current lane and speed
+then compute a trajectory using the previous path generated so the result path will be more smooth
+we compute the trajectory by using last 2 point from previous path or some transformation from the initial position of the car and 3 points far from the car(30s,60s, 90s) then transform all these points into the car coordinates then compute spline and transform it to global coordinates from car coordinates then to ensure continuity we add all previous path points. 
+
 ## Editor Settings
 
 We've purposefully kept editor configuration files out of this repo in order to

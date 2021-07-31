@@ -1,13 +1,15 @@
 #include "trajectory_generator.h"
-
+#include "helpers.h"
 namespace carND {
-Points TrajectoryGenerator::generate_trajectory(PreviousPath const &prev_path,
-                                                std::vector<SensorData> const &sensors_data) {
+Points TrajectoryGenerator::generate_trajectory(PreviousPath const &prev_path, const Behaviour behaviour) {
   Points new_path;
   auto prev_path_size = prev_path.points.x.size();
+  
+  m_car->lane = behaviour.lane;
+  m_car->ref_velocity = behaviour.velocity;
+  
   // Create Way Points
   Points way_points;
-
   double ref_x = m_car->x;
   double ref_y = m_car->y;
   double ref_yaw = deg2rad(m_car->yaw);
@@ -36,11 +38,11 @@ Points TrajectoryGenerator::generate_trajectory(PreviousPath const &prev_path,
   way_points.x.push_back(ref_x);
   way_points.y.push_back(ref_y);
   // Add 3 spaced by 30m points In frenet coordinates
-  vector<double> next_wp0 = getXY(m_car->s + 30, (2 + 4 * m_currentLane), m_map_waypoints_s,
+  vector<double> next_wp0 = getXY(m_car->s + 30, (2 + 4 * m_car->lane), m_map_waypoints_s,
                                   m_map_waypoints_x, m_map_waypoints_y);
-  vector<double> next_wp1 = getXY(m_car->s + 60, (2 + 4 * m_currentLane), m_map_waypoints_s,
+  vector<double> next_wp1 = getXY(m_car->s + 60, (2 + 4 * m_car->lane), m_map_waypoints_s,
                                   m_map_waypoints_x, m_map_waypoints_y);
-  vector<double> next_wp2 = getXY(m_car->s + 90, (2 + 4 * m_currentLane), m_map_waypoints_s,
+  vector<double> next_wp2 = getXY(m_car->s + 90, (2 + 4 * m_car->lane), m_map_waypoints_s,
                                   m_map_waypoints_x, m_map_waypoints_y);
   way_points.x.push_back(next_wp0[0]);
   way_points.x.push_back(next_wp1[0]);
@@ -64,48 +66,19 @@ Points TrajectoryGenerator::generate_trajectory(PreviousPath const &prev_path,
   double target_distance = distance(target_x, target_x, target_y, target_y);
 
   double x_add_on = 0;
-  double N = (target_distance / (0.02 * m_ref_vel / 2.24));
+  
+  
+  double N = (target_distance / (0.02 * m_car->ref_velocity / 2.24));  
   for(int i = 1; i < 50 - prev_path_size; ++i) {
     auto x = x_add_on + (target_x) / N;
     auto y = m_spline(x);
-    auto new_points = transform_to_global_coords(x,y,ref_x, ref_y, ref_yaw);
+
+    x_add_on = x;
+    
+    auto new_points = transform_to_global_coords(x, y, ref_x, ref_y, ref_yaw);
     new_path.x.push_back(new_points[0]);
     new_path.y.push_back(new_points[1]);
   }
   return new_path;
-}
-Points TrajectoryGenerator::transform_to_car_coords(Points const &old_points,
-                                                    const double ref_x, const double ref_y,
-                                                    const double ref_yaw) {
-  Points transformed_points;
-  for(int i = 0; i < old_points.x.size(); ++i) {
-    double shift_x = old_points.x[i] - ref_x;
-    double shift_y = old_points.y[i] - ref_y;
-    transformed_points.x.emplace_back(shift_x * cos(0-ref_yaw) - shift_y * sin(0-ref_yaw));
-    transformed_points.y.emplace_back(shift_x * sin(0-ref_yaw) + shift_y * cos(0-ref_yaw));
-  }
-  return transformed_points;
-}
-Points TrajectoryGenerator::transform_to_global_coords(Points const &old_points,
-                                                       const double ref_x, const double ref_y,
-                                                       const double ref_yaw) {
-  Points transformed_points;
-  for(int i = 0; i < old_points.x.size(); ++i) {
-    transformed_points.x.emplace_back(old_points.x[i] * cos(ref_yaw) -
-                                      old_points.y[i] * sin(ref_yaw) + ref_x);
-    transformed_points.y.emplace_back(old_points.x[i] * sin(ref_yaw) +
-                                      old_points.y[i] * cos(ref_yaw) + ref_y);
-  }
-  return transformed_points;
-}
-
-std::vector<double> TrajectoryGenerator::transform_to_global_coords(
-  const double old_x, const double old_y, const double ref_x,
-  const double ref_y, const double ref_yaw) {
-  std::vector<double> transformed_points;
-  transformed_points.emplace_back(old_x * cos(ref_yaw) - old_y * sin(ref_yaw) + ref_x);
-  transformed_points.emplace_back(old_x * sin(ref_yaw) + old_y * cos(ref_yaw) + ref_y);
-
-  return transformed_points;
 }
 }  // namespace carND
